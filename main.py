@@ -3,12 +3,14 @@ import math
 from collections import defaultdict
 from typing import Dict
 
+import networkx
+
 discouraged_games = defaultdict(lambda: 0)
 
 # Thinker with these:
 
-max_difference = 1  # The maximum skill difference between two players of the same game. Good value for two teams: 1
-minimum_level = 3  # The minimum skill level of the worse player of a game. Good value for two teams: 3
+max_difference = 5  # The maximum skill difference between two players of the same game. Good value for two teams: 1. Good value for three teams: 2.
+minimum_level = 2  # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
 discouraged_games.update({  # Games that should be less likely to show up. This is a flat value added to error.
     "Stardew": 1,
     "VVVVVV": 1,
@@ -24,9 +26,9 @@ completely_disallowed_games = {  # Completely disallow these games. Doing so mig
 
 only_use_best_match_for_player_combination = True
 
-# Set the amount of teams:
+# Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 3
+teams = 6  # The max for this is probably 7.
 
 # Finally, tinker with the value function:
 
@@ -53,7 +55,7 @@ class Person:
     def __init__(self):
         self.games = dict()
 
-    """def get_overlap(self, other):
+    def get_overlap(self, other):
         best = (math.inf, "")
 
         for game, this_score in self.games.items():
@@ -66,12 +68,11 @@ class Person:
             if this_score < minimum_level or other.games[game] < minimum_level:
                 continue
 
-
             new_candidate = get_compatibility_score(this_score, other.games[game]) + discouraged_games[game]
             if best[0] > new_candidate:
                 best = (new_candidate, game)
 
-        return best"""
+        return best
 
 
 def balance_teams(result):
@@ -267,41 +268,44 @@ if __name__ == '__main__':
 
             persons.append(new_person)
 
-    n_matching_experimental(persons, game_names.values())
-
-    """G = networkx.Graph()
-    G.add_nodes_from([person for person in persons])
-
-    for i, person_a in enumerate(persons):
-        for j, person_b in enumerate(persons):
-            if i >= j:
-                continue
-
-            score, game_name = person_a.get_overlap(person_b)
-
-            if score == math.inf:
-                continue
-
-            G.add_edge(person_a, person_b, weight=score)
-
-    print(G)
-
     if teams == 2:
-        best_matching = networkx.min_weight_matching(G)
+        print("For team size 2, the regular algorithm might take very long to complete. But, 2-matching is actually a solvable (P) problem where it is easy to get the singular best answer. That answer is this:")
+        print("")
+        G = networkx.Graph()
+        G.add_nodes_from([person for person in persons])
 
-        cum_sum = 0
+        for i, person_a in enumerate(persons):
+            for j, person_b in enumerate(persons):
+                if i >= j:
+                    continue
 
-        for person_a, person_b in best_matching:
-            score, game = person_a.get_overlap(person_b)
-            score_a = person_a.games[game]
-            score_b = person_b.games[game]
+                score, game_name = person_a.get_overlap(person_b)
 
-            cum_sum += get_compatibility_score(score_a, score_b) + discouraged_games[game]
+                if score == math.inf:
+                    continue
 
-            favored_person = person_a.name if score_a > score_b else (
-                person_b.name if score_b > score_a else "neither player")
+                G.add_edge(person_a, person_b, weight=score)
 
-            print(
-                f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+        if teams == 2:
+            best_matching = networkx.min_weight_matching(G)
 
-        print(cum_sum)"""
+            cum_sum = 0
+
+            for person_a, person_b in best_matching:
+                score, game = person_a.get_overlap(person_b)
+                score_a = person_a.games[game]
+                score_b = person_b.games[game]
+
+                cum_sum += get_compatibility_score(score_a, score_b) + discouraged_games[game]
+
+                favored_person = person_a.name if score_a > score_b else (
+                    person_b.name if score_b > score_a else "neither player")
+
+                print(
+                    f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+        print("---")
+        print("The regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with team sizes of 10 or higher.")
+
+    if teams >= 3:
+        print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.")
+    n_matching_experimental(persons, game_names.values())
