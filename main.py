@@ -28,7 +28,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 6  # The max for this is probably 7.
+teams = 2  # The max for this is probably 7.
 
 # Finally, tinker with the value function:
 
@@ -303,9 +303,9 @@ if __name__ == '__main__':
 
                 print(
                     f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+        print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
         print("---")
-        print("The regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with team sizes of 10 or higher.")
 
     if teams >= 3:
-        print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.")
+        print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.\n")
     n_matching_experimental(persons, game_names.values())
