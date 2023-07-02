@@ -20,6 +20,13 @@ completely_disallowed_games = {  # Completely disallow these games. Doing so mig
     "ChecksFinder",
     "Clique",
 }
+discouraged_combinations = defaultdict(lambda: 0)
+discouraged_combinations.update({  # Example: ("Violet", "Timespinner"): 10.
+    ("Violet", "Timespinner"): 10,
+})
+disallowed_combinations = {
+    ("Violet", "Stardew"),  # Example: ("Violet", "Stardew")
+}
 
 # Turn this on for a performance increase (This will only consider the best match for each pair/trio/etc. of players):
 # This means that "variants" of a player distribution (that only differ in the games that each pair plays) won't show up
@@ -62,13 +69,16 @@ class Person:
             if game not in other.games:
                 continue
 
+            if (self.name, game) in disallowed_combinations or (other.name, game) in disallowed_combinations:
+                continue
+
             if abs(this_score - other.games[game]) > max_difference:
                 continue
 
             if this_score < minimum_level or other.games[game] < minimum_level:
                 continue
 
-            new_candidate = get_compatibility_score(this_score, other.games[game]) + discouraged_games[game]
+            new_candidate = get_compatibility_score(this_score, other.games[game]) + get_discouragement_factor(game, [self, other])
             if best[0] > new_candidate:
                 best = (new_candidate, game)
 
@@ -174,18 +184,25 @@ def find_cycle_set(cycles, n):
     print_combination(cycles, len(cycles), n)
 
 
+def get_discouragement_factor(game, people):
+    return discouraged_games[game] + sum(discouraged_combinations[(person.name, game)] for person in people)
+
+
 def n_matching_experimental(persons, games):
     possible_tuples = []
 
     for game in games:
         associated_persons = [person for person in persons if game in person.games]
 
-        new_tuples = [(combination, game, get_cum_compatibility_score(person.games[game] for person in combination) + discouraged_games[game])
+        new_tuples = [(combination, game, get_cum_compatibility_score(person.games[game] for person in combination) + get_discouragement_factor(game, combination))
                       for combination in itertools.combinations(associated_persons, teams)]
         valid_tuples = []
 
         for tuple in new_tuples:
             if tuple[1] in completely_disallowed_games:
+                continue
+
+            if any((person.name, tuple[1]) in disallowed_combinations for person in tuple[0]):
                 continue
 
             problem = False
@@ -281,6 +298,9 @@ if __name__ == '__main__':
 
                 score, game_name = person_a.get_overlap(person_b)
 
+                if game_name in completely_disallowed_games:
+                    continue
+
                 if score == math.inf:
                     continue
 
@@ -296,7 +316,7 @@ if __name__ == '__main__':
                 score_a = person_a.games[game]
                 score_b = person_b.games[game]
 
-                cum_sum += get_compatibility_score(score_a, score_b) + discouraged_games[game]
+                cum_sum += get_compatibility_score(score_a, score_b) + get_discouragement_factor(game, [person_a, person_b])
 
                 favored_person = person_a.name if score_a > score_b else (
                     person_b.name if score_b > score_a else "neither player")
@@ -304,8 +324,11 @@ if __name__ == '__main__':
                 print(
                     f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
         print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
-        print("---")
 
     if teams >= 3:
-        print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.\n")
+        print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.")
+
+    print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
+    print("---")
+
     n_matching_experimental(persons, game_names.values())
