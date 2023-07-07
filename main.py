@@ -21,11 +21,11 @@ completely_disallowed_games = {  # Completely disallow these games. Doing so mig
     "Clique",
 }
 discouraged_combinations = defaultdict(lambda: 0)
-discouraged_combinations.update({  # Example: ("Violet", "Timespinner"): 10.
-    ("Violet", "Timespinner"): 10,
+discouraged_combinations.update({
+    # Example: ("Violet", "Timespinner"): 10,
 })
 disallowed_combinations = {
-    ("Violet", "Stardew"),  # Example: ("Violet", "Stardew")
+    # Example: ("Violet", "Stardew"),
 }
 
 # Turn this on for a performance increase (This will only consider the best match for each pair/trio/etc. of players):
@@ -46,6 +46,19 @@ teams = 3  # The max for this is probably 7.
 # Any positive number means this combination will be added to disallowed_combinations with the specified value.
 
 negative_entry_treatment = 10
+
+# Force two players to be on the same team. Only supports duos at the moment (You can chain them to simulate trios).
+# (This uses some hacky Python lol)
+
+force_same_team = {
+    # Example: ("Violet", "Dragorrod"),
+}
+
+# Disallow two players from being on the same team. Only supports duos (You can chain them to simulate trios).
+
+force_different_team = {
+    # Example: ("Violet", "Dragorrod"),
+}
 
 # Finally, tinker with the value function:
 
@@ -109,12 +122,43 @@ def balance_teams(result):
                 new_team_dist = []
                 for i, player in enumerate(new_players):
                     player_with_score = (player[0], player[0].games[player[1]])
-                    new_team_dist.append(current_team_dist[i] + [player_with_score])
+                    team = current_team_dist[i] + [player_with_score]
+                    new_team_dist.append(team)
                 new_team_dist_list.append(new_team_dist)
         team_dist_list = new_team_dist_list
 
     team_possibilites_with_scores = []
     for possibility in team_dist_list:
+        wrong = False
+
+        if force_same_team:
+            for forced_teammates in force_same_team:
+                forced_teammates = set(forced_teammates)
+                for team in possibility:
+                    team_set = set(player.name for player, _ in team)
+                    if not forced_teammates.isdisjoint(team_set) and not forced_teammates.issubset(team_set):
+                        print(team_set)
+                        print(forced_teammates)
+                        wrong = True
+                        break
+
+                if wrong:
+                    break
+
+        if force_different_team:
+            for disallowed_teammates in force_different_team:
+                disallowed_teammates = set(disallowed_teammates)
+                for team in possibility:
+                    team_set = set(player.name for player, _ in team)
+                    if disallowed_teammates.issubset(team_set):
+                        wrong = True
+                        break
+                if wrong:
+                    break
+
+        if wrong:
+            continue
+
         team_possibilites_with_scores.append([(team, sum(player[1] for player in team)) for team in possibility])
 
     best = min(team_possibilites_with_scores, key=lambda possibility: max(team[1] for team in possibility) - min(team[1] for team in possibility))
@@ -154,7 +198,7 @@ def print_result(cycles):
     if new_score < results[-1][1]:
         results.pop()
         results.append((cycles.copy(), new_score))
-        results.sort(key= lambda r: r[1])
+        results.sort(key=lambda r: r[1])
         achievable_score = results[-1][1]
         return
 
@@ -231,6 +275,10 @@ def n_matching_experimental(persons, games):
                     problem = True
                     break
 
+                if (person_a.name, person_b.name) in force_same_team or (person_b.name, person_a.name) in force_same_team:
+                    problem = True
+                    break
+
             if problem:
                 continue
 
@@ -265,6 +313,13 @@ def n_matching_experimental(persons, games):
 
 
 if __name__ == '__main__':
+    if not disallowed_combinations:
+        disallowed_combinations = set()
+    if not force_same_team:
+        force_same_team = set()
+    if not force_different_team:
+        force_different_team = set()
+
     persons = []
 
     with open("values.txt", "r") as file:
