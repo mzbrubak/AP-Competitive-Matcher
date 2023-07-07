@@ -43,7 +43,7 @@ teams = 3  # The max for this is probably 7.
 
 # 0 means their wishes will be entirely ignored and the game-player combination is considered fully
 # -1 means that combination is now *banned* (eseentially: added to disallowed_combinations).
-# Any positive number means this combination will be added to disallowed_combinations with the specified value.
+# Any positive number means this game-player combination will be added to disallowed_combinations with that value.
 
 negative_entry_treatment = 10
 
