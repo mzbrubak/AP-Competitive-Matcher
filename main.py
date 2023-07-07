@@ -35,7 +35,17 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 2  # The max for this is probably 7.
+teams = 3  # The max for this is probably 7.
+
+# Determine how negative values are interpreted.
+# A negative value means "I don't want to play this game but I will if I have to".
+# a -5 is equivalent to a 5, but means they'd rather not play it this time around.
+
+# 0 means their wishes will be entirely ignored and the game is considered fully
+# -1 means that combination is now *banned* (eseentially: added to disallowed_combinations.
+# Any positive number means this combination will be added to disallowed_combinations with the specified value.
+
+negative_entry_treatment = 10
 
 # Finally, tinker with the value function:
 
@@ -52,7 +62,7 @@ results_amount = 10
 
 
 def get_cum_compatibility_score(scores):
-    return sum(get_compatibility_score(c[0], c[1]) for c in itertools.combinations(scores, 2))
+    return sum(get_compatibility_score(c[0], c[1]) for c in itertools.combinations(scores, 2)) / (binom(teams, 2))
 
 
 class Person:
@@ -246,8 +256,8 @@ def n_matching_experimental(persons, games):
 
     for result in results:
         for game in result[0]:
-            print(", ".join([person.name for person in game[0]]) + " playing " + game[1] + ". Compatibility error: " + str(round(game[2] / (binom(teams, 2)))))
-        print("Overall score: " + str(round(result[1]/binom(teams, 2))))
+            print(", ".join([person.name for person in game[0]]) + " playing " + game[1] + ". Compatibility error: " + str(round(game[2])))
+        print("Overall score: " + str(round(result[1])))
 
         balance_teams(result)
 
@@ -281,7 +291,18 @@ if __name__ == '__main__':
                 if value == "":
                     continue
 
-                new_person.games[game_names[i]] = int(value)
+                value = int(value)
+
+                if value < 0:
+                    value = abs(value)
+
+                    if negative_entry_treatment == -1:
+                        disallowed_combinations.add((new_person.name, game_names[i]))
+
+                    if negative_entry_treatment > 0:
+                        discouraged_combinations[(new_person.name, game_names[i])] = negative_entry_treatment
+
+                new_person.games[game_names[i]] = value
 
             persons.append(new_person)
 
