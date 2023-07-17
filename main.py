@@ -307,6 +307,7 @@ def n_matching_experimental(persons, games):
 
     if not too_restrictive_player:
         print("No combinations were found.")
+        print(f"Make the restrictions looser, or play with less teams.")
 
     find_cycle_set(possible_tuples, int(len(persons) / teams))
 
