@@ -305,9 +305,10 @@ def n_matching_experimental(persons, games):
             too_restrictive_player = True
             print(f"With these settings, player {player.name} does not play any game that {teams - 1} other players play.")
 
-    if not too_restrictive_player:
-        print("No combinations were found.")
-        print(f"Make the restrictions looser, or play with less teams.")
+    if too_restrictive_player:
+        print("As a result, no combinations were found.")
+        print("Make the restrictions looser, or play with less teams.")
+        return
 
     find_cycle_set(possible_tuples, int(len(persons) / teams))
 
@@ -316,6 +317,7 @@ def n_matching_experimental(persons, games):
 
     if not results:
         print("No combinations were found.")
+        print("Make the restrictions looser, or play with less teams.")
 
     for result in results:
         for game in result[0]:
