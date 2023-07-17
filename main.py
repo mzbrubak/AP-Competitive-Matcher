@@ -303,7 +303,7 @@ def n_matching_experimental(persons, games):
     for player in persons:
         if not any(player in tuple[0] for tuple in possible_tuples):
             too_restrictive_player = True
-            print(f"Player {player.name} does not play any game that {teams - 1} other players play.")
+            print(f"With these settings, player {player.name} does not play any game that {teams - 1} other players play.")
 
     if not too_restrictive_player:
         print("No combinations were found.")
