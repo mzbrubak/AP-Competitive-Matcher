@@ -31,7 +31,7 @@ disallowed_combinations = {
 # Turn this on for a performance increase (This will only consider the best match for each pair/trio/etc. of players):
 # This means that "variants" of a player distribution (that only differ in the games that each pair plays) won't show up
 
-only_use_best_match_for_player_combination = True
+only_use_best_match_for_player_combination = False
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
@@ -250,6 +250,7 @@ def n_matching_experimental(persons, games):
 
         new_tuples = [(combination, game, get_cum_compatibility_score(person.games[game] for person in combination) + get_discouragement_factor(game, combination))
                       for combination in itertools.combinations(associated_persons, teams)]
+
         valid_tuples = []
 
         for tuple in new_tuples:
@@ -297,10 +298,23 @@ def n_matching_experimental(persons, games):
 
         possible_tuples += valid_tuples
 
+    too_restrictive_player = False
+
+    for player in persons:
+        if not any(player in tuple[0] for tuple in possible_tuples):
+            too_restrictive_player = True
+            print(f"Player {player.name} does not play any game that {teams - 1} other players play.")
+
+    if not too_restrictive_player:
+        print("No combinations were found.")
+
     find_cycle_set(possible_tuples, int(len(persons) / teams))
 
     global results
     results.sort(key=lambda x: x[1])
+
+    if not results:
+        print("No combinations were found.")
 
     for result in results:
         for game in result[0]:
