@@ -64,12 +64,12 @@ force_different_team = {
 
 # Will print team combos as they come in.
 
-please_just_give_me_anything = True
+please_just_give_me_anything = False
 
 
 # Balancing teams is expensive right now. You might wanna turn it off on big player counts.
 
-balance_teams_for_me = False
+balance_teams_for_me = True
 
 
 # Finally, tinker with the value function:
