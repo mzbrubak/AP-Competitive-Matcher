@@ -67,7 +67,7 @@ force_different_team = {
 please_just_give_me_anything = False
 
 
-# Balancing teams is expensive right now. You might wanna turn it off on big player counts.
+# Balancing teams is expensive right now. You might wanna turn it off on big player counts and do it yourself.
 
 balance_teams_for_me = True
 
