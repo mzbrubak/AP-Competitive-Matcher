@@ -1,6 +1,7 @@
 import itertools
 import math
 from collections import defaultdict
+import random
 from typing import Dict
 
 import networkx
@@ -9,7 +10,7 @@ discouraged_games = defaultdict(lambda: 0)
 
 # Thinker with these:
 
-max_difference = 5  # The maximum skill difference between two players of the same game. Good value for two teams: 1. Good value for three teams: 2.
+max_difference = 3  # The maximum skill difference between two players of the same game. Good value for two teams: 1. Good value for three teams: 2.
 minimum_level = 2  # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
 discouraged_games.update({  # Games that should be less likely to show up. This is a flat value added to error.
     "Stardew": 1,
@@ -31,11 +32,11 @@ disallowed_combinations = {
 # Turn this on for a performance increase (This will only consider the best match for each pair/trio/etc. of players):
 # This means that "variants" of a player distribution (that only differ in the games that each pair plays) won't show up
 
-only_use_best_match_for_player_combination = False
+only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 3  # The max for this is probably 7.
+teams = 4  # The max for this is probably 7.
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -45,7 +46,7 @@ teams = 3  # The max for this is probably 7.
 # -1 means that game-player combination is now *banned* (eseentially: added to disallowed_combinations).
 # Any positive number means this game-player combination will be added to disallowed_combinations with that value.
 
-negative_entry_treatment = 10
+negative_entry_treatment = -1
 
 # Force two players to be on the same team. Only supports duos at the moment (You can chain them to simulate trios).
 # (This uses some hacky Python lol)
@@ -59,6 +60,17 @@ force_same_team = {
 force_different_team = {
     # Example: ("Violet", "Dragorrod"),
 }
+
+
+# Will print team combos as they come in.
+
+please_just_give_me_anything = True
+
+
+# Balancing teams is expensive right now. You might wanna turn it off on big player counts.
+
+balance_teams_for_me = False
+
 
 # Finally, tinker with the value function:
 
@@ -183,6 +195,18 @@ def binom(n, k):
     return math.factorial(n) // math.factorial(k) // math.factorial(n - k)
 
 
+def print_single_result(result):
+    for game in result[0]:
+        print(", ".join([person.name for person in game[0]]) + " playing " + game[
+            1] + ". Compatibility error: " + str(round(game[2])))
+    print("Overall score: " + str(round(result[1])))
+
+    if balance_teams_for_me:
+        balance_teams(result)
+
+    print("---")
+
+
 def print_result(cycles):
     global results
     global achievable_score
@@ -191,6 +215,10 @@ def print_result(cycles):
 
     if len(results) < results_amount:
         results.append((cycles.copy(), new_score))
+
+        if please_just_give_me_anything:
+            print_single_result((cycles.copy(), new_score))
+
         return
 
     results_a = results
@@ -198,6 +226,10 @@ def print_result(cycles):
     if new_score < results[-1][1]:
         results.pop()
         results.append((cycles.copy(), new_score))
+
+        if please_just_give_me_anything:
+            print_single_result((cycles.copy(), new_score))
+
         results.sort(key=lambda r: r[1])
         achievable_score = results[-1][1]
         return
@@ -310,6 +342,9 @@ def n_matching_experimental(persons, games):
         print("Make the restrictions looser, or play with less teams.")
         return
 
+    if please_just_give_me_anything:
+        random.shuffle(possible_tuples)
+
     find_cycle_set(possible_tuples, int(len(persons) / teams))
 
     global results
@@ -320,13 +355,7 @@ def n_matching_experimental(persons, games):
         print("Make the restrictions looser, or play with less teams.")
 
     for result in results:
-        for game in result[0]:
-            print(", ".join([person.name for person in game[0]]) + " playing " + game[1] + ". Compatibility error: " + str(round(game[2])))
-        print("Overall score: " + str(round(result[1])))
-
-        balance_teams(result)
-
-        print("---")
+        print_single_result(result)
 
 
 if __name__ == '__main__':
