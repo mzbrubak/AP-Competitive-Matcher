@@ -1,7 +1,7 @@
+import copy
 import itertools
 import math
 from collections import defaultdict
-import random
 from typing import Dict
 
 import networkx
@@ -11,13 +11,15 @@ discouraged_games = defaultdict(lambda: 0)
 # Thinker with these:
 
 max_difference = 3  # The maximum skill difference between two players of the same game. Good value for two teams: 1. Good value for three teams: 2.
-minimum_level = 2  # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
+minimum_level = 3 # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
+lowered_minimum = 2 # If there is a player that cannot match with anyone in the current settings, lower standard *for them* to this value.
+# Recommended action for restrictive games is to alternate lowering minimum_level and lowered_minimum.
+
 discouraged_games.update({  # Games that should be less likely to show up. This is a flat value added to error.
     "Stardew": 1,
     "VVVVVV": 1,
 })
 completely_disallowed_games = {  # Completely disallow these games. Doing so might increase performance over just setting a really high value above.
-    "Slay the Spire",
     "ChecksFinder",
     "Clique",
 }
@@ -62,19 +64,26 @@ force_different_team = {
 }
 
 
-# Will print team combos as they come in. This helps with getting ANY result on a big player count.
-# On this mode, it can get stuck on some idea. Thus, you might wanna cancel and rerun it several times.
+# Will print team combos immediately as they are found. This helps with getting ANY result on a big player count.
+# These will look very similar for some time, it will appear to get "stuck" on some idea.
 
-please_just_give_me_anything = False
+print_results_immediately = False
 
 
-# Balancing teams is expensive right now. You might wanna turn it off on big player counts and do it yourself.
+# If set to True, will use a brute force algorithm to get the best possible team balancing.
+# If set to False, will use a greedy algorithm to make the best of what it can.
 
-balance_teams_for_me = True
+perfect_team_balancing = False
+
+# Amount of results to print in the end.
+# Setting this lower can actually improve performance, as there is node pruning by "minimum achievable score".
+# It only improves performance if any combinations are being found, though.
+# I.e.: Set this to 1 if you just want the best combination as quickly as possible. Otherwise, probably leave it at 10.
+
+results_amount = 10
 
 
 # Finally, tinker with the value function:
-
 
 def get_compatibility_score(a: int, b: int):
     return abs(a - b)*teams + (5 - min(a, b))**2
@@ -84,7 +93,7 @@ def get_compatibility_score(a: int, b: int):
 
 results = []
 achievable_score = math.inf
-results_amount = 10
+worst_player_count = math.inf
 
 
 def get_cum_compatibility_score(scores):
@@ -121,64 +130,107 @@ class Person:
         return best
 
 
+def find_better_dist(team_dist):
+    scores = [sum(player_and_score[1] for player_and_score in team) for team in team_dist]
+    avg_score = sum(scores) / len(scores)
+    error = sum(abs(score - avg_score) for score in scores)
+
+    for team1 in range(0, len(team_dist)):
+        for team2 in range(0, len(team_dist)):
+            for player1 in range(0, len(team_dist[0])):
+                swapped_team_dist = [team.copy() for team in team_dist]
+                temp = swapped_team_dist[team1][player1]
+                swapped_team_dist[team1][player1] = swapped_team_dist[team2][player1]
+                swapped_team_dist[team2][player1] = temp
+
+                new_scores = [sum(player_score[1] for player_score in team) for team in swapped_team_dist]
+                new_error = sum(abs(score - avg_score) for score in new_scores)
+
+                if new_error < error:
+                    return swapped_team_dist, True
+
+    return team_dist, False
+
+
 def balance_teams(result):
     people_to_games = dict()
     for game_and_players in result[0]:
         for player in game_and_players[0]:
             people_to_games[player] = game_and_players[1]
 
-    team_dist_list = [[[(player, player.games[result[0][0][1]])] for player in result[0][0][0]]]
-    for game_and_players in result[0][1:]:
-        new_team_dist_list = []
-        for current_team_dist in team_dist_list:
-            for new_players in itertools.permutations([(player, game_and_players[1]) for player in game_and_players[0]]):
-                new_team_dist = []
-                for i, player in enumerate(new_players):
-                    player_with_score = (player[0], player[0].games[player[1]])
-                    team = current_team_dist[i] + [player_with_score]
-                    new_team_dist.append(team)
-                new_team_dist_list.append(new_team_dist)
-        team_dist_list = new_team_dist_list
+    if perfect_team_balancing:
+        team_dist_list = [[[(player, player.games[result[0][0][1]])] for player in result[0][0][0]]]
+        for game_and_players in result[0][1:]:
+            new_team_dist_list = []
+            for current_team_dist in team_dist_list:
+                for new_players in itertools.permutations([(player, game_and_players[1]) for player in game_and_players[0]]):
+                    new_team_dist = []
+                    for i, player in enumerate(new_players):
+                        player_with_score = (player[0], player[0].games[player[1]])
+                        team = current_team_dist[i] + [player_with_score]
+                        new_team_dist.append(team)
+                    new_team_dist_list.append(new_team_dist)
+            team_dist_list = new_team_dist_list
 
-    team_possibilites_with_scores = []
-    for possibility in team_dist_list:
-        wrong = False
+        team_possibilites_with_scores = []
+        for possibility in team_dist_list:
+            wrong = False
 
-        if force_same_team:
-            for forced_teammates in force_same_team:
-                forced_teammates = set(forced_teammates)
-                for team in possibility:
-                    team_set = set(player.name for player, _ in team)
-                    if not forced_teammates.isdisjoint(team_set) and not forced_teammates.issubset(team_set):
-                        print(team_set)
-                        print(forced_teammates)
-                        wrong = True
+            if force_same_team:
+                for forced_teammates in force_same_team:
+                    forced_teammates = set(forced_teammates)
+                    for team in possibility:
+                        team_set = set(player.name for player, _ in team)
+                        if not forced_teammates.isdisjoint(team_set) and not forced_teammates.issubset(team_set):
+                            print(team_set)
+                            print(forced_teammates)
+                            wrong = True
+                            break
+
+                    if wrong:
                         break
 
-                if wrong:
-                    break
-
-        if force_different_team:
-            for disallowed_teammates in force_different_team:
-                disallowed_teammates = set(disallowed_teammates)
-                for team in possibility:
-                    team_set = set(player.name for player, _ in team)
-                    if disallowed_teammates.issubset(team_set):
-                        wrong = True
+            if force_different_team:
+                for disallowed_teammates in force_different_team:
+                    disallowed_teammates = set(disallowed_teammates)
+                    for team in possibility:
+                        team_set = set(player.name for player, _ in team)
+                        if disallowed_teammates.issubset(team_set):
+                            wrong = True
+                            break
+                    if wrong:
                         break
-                if wrong:
-                    break
 
-        if wrong:
-            continue
+            if wrong:
+                continue
 
-        team_possibilites_with_scores.append([(team, sum(player[1] for player in team)) for team in possibility])
+            team_possibilites_with_scores.append([(team, sum(player[1] for player in team)) for team in possibility])
 
-    best = min(team_possibilites_with_scores, key=lambda possibility: max(team[1] for team in possibility) - min(team[1] for team in possibility))
+        best = min(team_possibilites_with_scores, key=lambda possibility: max(team[1] for team in possibility) - min(team[1] for team in possibility))
+
+    else:
+        team_dist = [[] for i in range(0, len(result[0][0][0]))]
+        for game_and_players in result[0]:
+            for index, player in enumerate(game_and_players[0]):
+                team_dist[index].append((player, player.games[game_and_players[1]]))
+
+        for _ in range(0, 100):
+            new_dist, found_better = find_better_dist(team_dist)
+
+            if not found_better:
+                break
+
+            team_dist = new_dist
+
+        best = [(team,) for team in team_dist]
 
     print("Best teams:")
     for i, team in enumerate(best):
-        print("Team " + str(i + 1) + ": " + ", ".join([player[0].name + f" on {people_to_games[player[0]]} ({player[1]})" for player in team[0]]) + " | Score: " + str(sum([player[1] for player in team[0]])))
+        print("Team "
+              + str(i + 1)
+              + ": "
+              + ", ".join([player[0].name + f" on {people_to_games[player[0]]} ({player[1]})" for player in team[0]])
+              + " | Score: " + str(sum([player[1] for player in team[0]])))
 
 
 def print_combination(arr, n, r):
@@ -202,8 +254,7 @@ def print_single_result(result):
             1] + ". Compatibility error: " + str(round(game[2])))
     print("Overall score: " + str(round(result[1])))
 
-    if balance_teams_for_me:
-        balance_teams(result)
+    balance_teams(result)
 
     print("---")
 
@@ -215,9 +266,12 @@ def print_result(cycles):
     new_score = get_score(cycles)
 
     if len(results) < results_amount:
+        if not len(results):
+            print("Found something! If things are taking too long, rerun with 'print_results_immediately = True'.")
+
         results.append((cycles.copy(), new_score))
 
-        if please_just_give_me_anything:
+        if print_results_immediately:
             print_single_result((cycles.copy(), new_score))
 
         return
@@ -228,7 +282,7 @@ def print_result(cycles):
         results.pop()
         results.append((cycles.copy(), new_score))
 
-        if please_just_give_me_anything:
+        if print_results_immediately:
             print_single_result((cycles.copy(), new_score))
 
         results.sort(key=lambda r: r[1])
@@ -246,12 +300,28 @@ def combination_util(arr, data, start,
 
     i = start
 
-    ppl_so_far = {item.name for sublist in data if sublist for item in sublist[0]}
+    ppl_so_far = {item for sublist in data if sublist for item in sublist[0]}
+
+    remaining_tuples = {tuple[0] for tuple in arr[start:] if not set(tuple[0]) & ppl_so_far}
+
+    if not remaining_tuples:
+        return
+
+    minimum_remaining_score = min(tuple[2] for tuple in arr[start:])
+
+    ppl_in_remaining_tuples = {j for sub in remaining_tuples for j in sub}
+
+    if data[0]:
+        remaining_people = teams * sum(1 for d in data if not d)
+
+        if remaining_people != len(ppl_in_remaining_tuples):
+            return
 
     while i <= end and end - i + 1 >= r - index:
-        ppl_from_new_cycle = {person.name for person in arr[i][0]}
+        if index == 0:
+            print(f"{i+1}/{worst_player_count}. Later iterations go faster.")
 
-        if ppl_so_far & ppl_from_new_cycle:
+        if arr[i][0] not in remaining_tuples:
             i += 1
             continue
 
@@ -275,7 +345,7 @@ def get_discouragement_factor(game, people):
     return discouraged_games[game] + sum(discouraged_combinations[(person.name, game)] for person in people)
 
 
-def n_matching_experimental(persons, games):
+def generate_tuples(persons, games, problematic_players=frozenset()):
     possible_tuples = []
 
     for game in games:
@@ -295,6 +365,11 @@ def n_matching_experimental(persons, games):
 
             problem = False
 
+            minimum_to_use = minimum_level
+
+            if set(tuple[0]) & problematic_players:
+                minimum_to_use = lowered_minimum
+
             for combination in itertools.combinations(tuple[0], 2):
                 person_a = combination[0]
                 person_b = combination[1]
@@ -305,7 +380,7 @@ def n_matching_experimental(persons, games):
                     problem = True
                     break
 
-                if score_a < minimum_level or score_b < minimum_level:
+                if score_a < minimum_to_use or score_b < minimum_to_use:
                     problem = True
                     break
 
@@ -331,20 +406,48 @@ def n_matching_experimental(persons, games):
 
         possible_tuples += valid_tuples
 
-    too_restrictive_player = False
+    return possible_tuples
+
+
+def n_matching_experimental(persons, games):
+    global worst_player_count
+
+    possible_tuples = generate_tuples(persons, games)
+
+    too_restrictive_players = set()
 
     for player in persons:
         if not any(player in tuple[0] for tuple in possible_tuples):
-            too_restrictive_player = True
+            too_restrictive_players.add(player)
             print(f"With these settings, player {player.name} does not play any game that {teams - 1} other players play.")
 
-    if too_restrictive_player:
+    while too_restrictive_players:
         print("As a result, no combinations were found.")
-        print("Make the restrictions looser, or play with less teams.")
-        return
+        print("Attempting to lower standard.")
 
-    if please_just_give_me_anything:
-        random.shuffle(possible_tuples)
+        possible_tuples = generate_tuples(persons, games, frozenset(too_restrictive_players), )
+
+        #print("Make the restrictions looser, or play with less teams.")
+
+        too_restrictive_players = set()
+
+        for player in persons:
+            if not any(player in tuple[0] for tuple in possible_tuples):
+                too_restrictive_players.add(player)
+                print(f"Even with the lowered standard, player {player.name} does not play any game that {teams - 1} other players play.")
+
+    all_t = len(possible_tuples)
+
+    counts = dict()
+
+    for tuple in possible_tuples:
+        for player in tuple[0]:
+            counts.setdefault(player, 0)
+            counts[player] += 1
+
+    worst_player_count = min(counts.values())
+
+    possible_tuples.sort(key=lambda t: sum(counts[p]*pow(all_t, -ind) for ind, p in enumerate(sorted(t[0], key=lambda p: counts[p]))))
 
     find_cycle_set(possible_tuples, int(len(persons) / teams))
 
