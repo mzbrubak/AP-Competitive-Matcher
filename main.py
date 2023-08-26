@@ -62,8 +62,8 @@ force_different_team = {
 }
 
 
-# Will print team combos as they come in. On this mode, it can get stuck on some idea.
-# Thus, you might wanna cancel and rerun it several times.
+# Will print team combos as they come in. This helps with getting ANY result on a big player count.
+# On this mode, it can get stuck on some idea. Thus, you might wanna cancel and rerun it several times.
 
 please_just_give_me_anything = False
 
