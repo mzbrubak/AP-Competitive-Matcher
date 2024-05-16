@@ -38,7 +38,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 4  # The max for this is probably 7.
+teams = 2  # The max for this is probably 7.
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -112,6 +112,10 @@ class Person:
         best = (math.inf, "")
 
         for game, this_score in self.games.items():
+        
+            if game in completely_disallowed_games:
+                continue
+                
             if game not in other.games:
                 continue
 
@@ -524,9 +528,6 @@ if __name__ == '__main__':
                     continue
 
                 score, game_name = person_a.get_overlap(person_b)
-
-                if game_name in completely_disallowed_games:
-                    continue
 
                 if score == math.inf:
                     continue
