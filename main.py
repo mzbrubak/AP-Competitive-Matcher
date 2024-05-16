@@ -533,23 +533,23 @@ if __name__ == '__main__':
 
                 G.add_edge(person_a, person_b, weight=score)
 
-        if teams == 2:
-            best_matching = networkx.min_weight_matching(G)
 
-            cum_sum = 0
+        best_matching = networkx.min_weight_matching(G)
 
-            for person_a, person_b in best_matching:
-                score, game = person_a.get_overlap(person_b)
-                score_a = person_a.games[game]
-                score_b = person_b.games[game]
+        cum_sum = 0
 
-                cum_sum += get_compatibility_score(score_a, score_b) + get_discouragement_factor(game, [person_a, person_b])
+        for person_a, person_b in best_matching:
+            score, game = person_a.get_overlap(person_b)
+            score_a = person_a.games[game]
+            score_b = person_b.games[game]
 
-                favored_person = person_a.name if score_a > score_b else (
-                    person_b.name if score_b > score_a else "neither player")
+            cum_sum += get_compatibility_score(score_a, score_b) + get_discouragement_factor(game, [person_a, person_b])
 
-                print(
-                    f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+            favored_person = person_a.name if score_a > score_b else (
+                person_b.name if score_b > score_a else "neither player")
+
+            print(
+                f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
         print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
 
     if teams >= 3:
