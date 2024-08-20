@@ -39,7 +39,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 3  # The max for this is probably 7.
+teams = 1  # The max for this is probably 7.
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
