@@ -1,6 +1,7 @@
 import copy
 import itertools
 import math
+#import time # for performance tests
 from collections import defaultdict
 from typing import Dict
 
@@ -9,10 +10,10 @@ import sys
 
 discouraged_games = defaultdict(lambda: 0)
 
-# Thinker with these:
+# Tinker with these:
 
 max_difference = 3  # The maximum skill difference between two players of the same game. Good value for two teams: 1. Good value for three teams: 2.
-minimum_level = 3 # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
+minimum_level = 2 # The minimum skill level of the worst player of a game. Good value teams: 3. At 5 teams or higher, you might need to lower the value to 2.
 lowered_minimum = 2 # If there is a player that cannot match with anyone in the current settings, lower standard *for them* to this value.
 # Recommended action for restrictive games is to alternate lowering minimum_level and lowered_minimum.
 
@@ -39,11 +40,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-<<<<<<< Updated upstream
-teams = 2  # The max for this is probably 7.
-=======
 teams = 0  # The max for this is probably 7.
->>>>>>> Stashed changes
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -51,7 +48,7 @@ teams = 0  # The max for this is probably 7.
 
 # 0 means their wishes will be entirely ignored and the game-player combination is considered fully
 # -1 means that game-player combination is now *banned* (eseentially: added to disallowed_combinations).
-# Any positive number means this game-player combination will be added to disallowed_combinations with that value.
+# Any positive number means this game-player combination will be added to discouraged_combinations with that value.
 
 negative_entry_treatment = -1
 
@@ -86,7 +83,7 @@ perfect_team_balancing = False
 # It only improves performance if any combinations are being found, though.
 # I.e.: Set this to 1 if you just want the best combination as quickly as possible. Otherwise, probably leave it at 10.
 
-results_amount = 10
+results_amount = 1
 
 
 # Finally, tinker with the value function:
@@ -368,7 +365,7 @@ def generate_tuples(persons, games, problematic_players=frozenset()):
 
         for tuple in new_tuples:
             if tuple[1] in completely_disallowed_games:
-                continue
+                continue#note: consider performance cost of checking disallowed here or before finding tuples?
 
             if any((person.name, tuple[1]) in disallowed_combinations for person in tuple[0]):
                 continue
@@ -471,7 +468,7 @@ def n_matching_experimental(persons, games):
     for result in results:
         print_single_result(result)
 
-
+#tstart=time.time()
 if __name__ == '__main__':
     if not disallowed_combinations:
         disallowed_combinations = set()
@@ -566,9 +563,6 @@ if __name__ == '__main__':
     print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
     print("---")
 
-<<<<<<< Updated upstream
-    n_matching_experimental(persons, game_names.values())
-=======
     if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match as required to allow all players to join
         print("Let me try some things here...")
         playercount=len(persons)
@@ -577,10 +571,9 @@ if __name__ == '__main__':
         playerremainder=playercount%4
         if playerremainder:#if 0, just run teams=2 and split manually
             optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
-        print(str(playercount))
-        print(str(playerremainder))
-        print(str(optimaltriadcount))
+            possible_triples=generate_tuples()
+        
+
 
 #tend=time.time()
 #print(str(tend-tstart))
->>>>>>> Stashed changes
