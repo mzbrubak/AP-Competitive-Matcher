@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import Dict
 
 import networkx
+import sys
 
 discouraged_games = defaultdict(lambda: 0)
 
@@ -38,7 +39,11 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
+<<<<<<< Updated upstream
 teams = 2  # The max for this is probably 7.
+=======
+teams = 0  # The max for this is probably 7.
+>>>>>>> Stashed changes
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -87,7 +92,7 @@ results_amount = 10
 # Finally, tinker with the value function:
 
 def get_compatibility_score(a: int, b: int):
-    return abs(a - b)*teams + (5 - min(a, b))**2
+    return abs(a - b)*teams + (4 - min(4,a, b))**2
 
 
 # Don't touch anything past here unless you know what you're doing!
@@ -552,11 +557,30 @@ if __name__ == '__main__':
             print(
                 f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
         print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
+        n_matching_experimental(persons, game_names.values())
 
     if teams >= 3:
         print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.")
+        n_matching_experimental(persons, game_names.values())
 
     print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
     print("---")
 
+<<<<<<< Updated upstream
     n_matching_experimental(persons, game_names.values())
+=======
+    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match as required to allow all players to join
+        print("Let me try some things here...")
+        playercount=len(persons)
+        if playercount<2:
+            sys.exit("Not enough players")
+        playerremainder=playercount%4
+        if playerremainder:#if 0, just run teams=2 and split manually
+            optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
+        print(str(playercount))
+        print(str(playerremainder))
+        print(str(optimaltriadcount))
+
+#tend=time.time()
+#print(str(tend-tstart))
+>>>>>>> Stashed changes
