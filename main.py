@@ -40,7 +40,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 0  # The max for this is probably 7.
+teams = 2  # The max for this is probably 7.
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -468,6 +468,40 @@ def n_matching_experimental(persons, games):
     for result in results:
         print_single_result(result)
 
+def optimal_2team_matching(persons):
+    G = networkx.Graph()
+    G.add_nodes_from([person for person in persons])
+
+    for i, person_a in enumerate(persons):
+        for j, person_b in enumerate(persons):
+            if i >= j:
+                continue
+
+            score, game_name = person_a.get_overlap(person_b)
+
+            if score == math.inf:
+                continue
+
+            G.add_edge(person_a, person_b, weight=score)
+
+
+    best_matching = networkx.min_weight_matching(G)
+
+    cum_sum = 0
+
+    for person_a, person_b in best_matching:
+        score, game = person_a.get_overlap(person_b)
+        score_a = person_a.games[game]
+        score_b = person_b.games[game]
+
+        cum_sum += get_compatibility_score(score_a, score_b) + get_discouragement_factor(game, [person_a, person_b])
+
+        favored_person = person_a.name if score_a > score_b else (
+            person_b.name if score_b > score_a else "neither player")
+
+        print(
+            f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+
 #tstart=time.time()
 if __name__ == '__main__':
     if not disallowed_combinations:
@@ -521,38 +555,7 @@ if __name__ == '__main__':
     if teams == 2:
         print("For team size 2, the regular algorithm might take very long to complete. But, 2-matching is actually a solvable (P) problem where it is easy to get the singular best answer. That answer is this:")
         print("")
-        G = networkx.Graph()
-        G.add_nodes_from([person for person in persons])
-
-        for i, person_a in enumerate(persons):
-            for j, person_b in enumerate(persons):
-                if i >= j:
-                    continue
-
-                score, game_name = person_a.get_overlap(person_b)
-
-                if score == math.inf:
-                    continue
-
-                G.add_edge(person_a, person_b, weight=score)
-
-
-        best_matching = networkx.min_weight_matching(G)
-
-        cum_sum = 0
-
-        for person_a, person_b in best_matching:
-            score, game = person_a.get_overlap(person_b)
-            score_a = person_a.games[game]
-            score_b = person_b.games[game]
-
-            cum_sum += get_compatibility_score(score_a, score_b) + get_discouragement_factor(game, [person_a, person_b])
-
-            favored_person = person_a.name if score_a > score_b else (
-                person_b.name if score_b > score_a else "neither player")
-
-            print(
-                f"{person_a.name} and {person_b.name}, playing {game}. This matchup favors {favored_person}, ({score_a},{score_b}).")
+        optimal_2team_matching(persons)
         print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
         n_matching_experimental(persons, game_names.values())
 
@@ -563,7 +566,7 @@ if __name__ == '__main__':
     print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
     print("---")
 
-    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match as required to allow all players to join
+    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match as required to allow all players to join regardless of number
         print("Let me try some things here...")
         playercount=len(persons)
         if playercount<2:
@@ -571,7 +574,11 @@ if __name__ == '__main__':
         playerremainder=playercount%4
         if playerremainder:#if 0, just run teams=2 and split manually
             optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
-            possible_triples=generate_tuples()
+            teams=3#probably better practice to make version of generate_tuples that takes teams as a value instead of changing global variables, but oh well
+            possible_triples=generate_tuples(persons,game_names.values())
+        teams=2
+        possible_doubles=generate_tuples(persons,game_names.values())
+        teams=0
         
 
 
