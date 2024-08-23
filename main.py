@@ -246,7 +246,7 @@ def find_cycle_set(arr, r):
 
     combination_util(arr, data, 0,
                      n - 1, 0, r)
-    #and this function just also calls another function
+    
 
 
 def get_score(cycles):
@@ -301,43 +301,45 @@ def combination_util(arr, data, start,
                      end, index, r):
     global achievable_score
 
+    #check if enough matches have been made, print results if so
     if index == r:
         print_result(data)
         return
 
-    i = start
-
+    #filter remaining tuples to remove any that contain players already matched.  Return if there are none
     ppl_so_far = {item for sublist in data if sublist for item in sublist[0]}
-
     remaining_tuples = {tuple[0] for tuple in arr[start:] if not set(tuple[0]) & ppl_so_far}
-
     if not remaining_tuples:
         return
 
-    ppl_in_remaining_tuples = {j for sub in remaining_tuples for j in sub}
-
+    #check if possible matches still exist for all remaining players, return if not (note: for pairing mode I'll need to change how remaining_people is checked, and possibly )
     if data[0]:
         remaining_people = teams * sum(1 for d in data if not d)
-
+        ppl_in_remaining_tuples = {j for sub in remaining_tuples for j in sub}    
         if remaining_people != len(ppl_in_remaining_tuples):
             return
 
-    while i <= end and end - i + 1 >= r - index:
+    #if all previous checks pass, iterate over all remaining tuples
+    i = start
+    while i <= end and end - i + 1 >= r - index:#second condition triggers if not enough tuples are left for full game
         if index == 0:
             print(f"{i+1}/{worst_player_count}. Later iterations go faster.")
 
+        #skip tuples removed because players were already matched
         if arr[i][0] not in remaining_tuples:
             i += 1
             continue
 
         data[index] = arr[i]
-
         if get_score([x for x in data if x]) > achievable_score:
             i += 1
             continue
-
+        
+        #if tuple is good, temporarily commit to it and look for next one
         combination_util(arr, data.copy(), i + 1,
                          end, index + 1, r)
+        
+        #once recursive function returns, move on to next tuple
         i += 1
 
 def get_discouragement_factor(game, people):
