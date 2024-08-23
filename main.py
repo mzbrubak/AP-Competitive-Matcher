@@ -1,4 +1,4 @@
-import copy
+#import copy
 import itertools
 import math
 #import time # for performance tests
@@ -240,11 +240,13 @@ def balance_teams(result):
               + " | Score: " + str(sum([player[1] for player in team[0]])))
 
 
-def print_combination(arr, n, r):
+def find_cycle_set(arr, r):
+    n=len(arr)
     data = [0] * r
 
     combination_util(arr, data, 0,
                      n - 1, 0, r)
+    #and this function just also calls another function
 
 
 def get_score(cycles):
@@ -283,8 +285,6 @@ def print_result(cycles):
 
         return
 
-    results_a = results
-
     if new_score < results[-1][1]:
         results.pop()
         results.append((cycles.copy(), new_score))
@@ -314,8 +314,6 @@ def combination_util(arr, data, start,
     if not remaining_tuples:
         return
 
-    minimum_remaining_score = min(tuple[2] for tuple in arr[start:])
-
     ppl_in_remaining_tuples = {j for sub in remaining_tuples for j in sub}
 
     if data[0]:
@@ -341,12 +339,6 @@ def combination_util(arr, data, start,
         combination_util(arr, data.copy(), i + 1,
                          end, index + 1, r)
         i += 1
-
-
-def find_cycle_set(cycles, n):
-    combinations = []
-    print_combination(cycles, len(cycles), n)
-
 
 def get_discouragement_factor(game, people):
     return discouraged_games[game] + sum(discouraged_combinations[(person.name, game)] for person in people)
@@ -566,18 +558,22 @@ if __name__ == '__main__':
     print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
     print("---")
 
-    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match as required to allow all players to join regardless of number
-        print("Let me try some things here...")
+    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match with up to 5 players per team as required to allow all players to join regardless of number
         playercount=len(persons)
         if playercount<2:
             sys.exit("Not enough players")
         playerremainder=playercount%4
         if playerremainder:#if 0, just run teams=2 and split manually
             optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
+            if optimaltriadcount==5 and playercount<15:
+                optimaltriadcount=1
             teams=3#probably better practice to make version of generate_tuples that takes teams as a value instead of changing global variables, but oh well
             possible_triples=generate_tuples(persons,game_names.values())
+            #find results for the 3-team match, store in an array
+            result_3team=[]
         teams=2
-        possible_doubles=generate_tuples(persons,game_names.values())
+        for result in result_3team:
+            optimal_2team_matching(remainingplayers)
         teams=0
         
 
