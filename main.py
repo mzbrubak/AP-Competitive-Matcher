@@ -243,7 +243,6 @@ def balance_teams(result):
 def find_cycle_set(arr, r):
     n=len(arr)
     data = [0] * r
-
     combination_util(arr, data, 0,
                      n - 1, 0, r)
     
@@ -271,29 +270,25 @@ def print_single_result(result):
 def print_result(cycles):
     global results
     global achievable_score
-
     new_score = get_score(cycles)
 
+    #add new result if there aren't enough results yet
     if len(results) < results_amount:
-        if not len(results):
+        if not len(results):#i.e. if this is the first result
             print("Found something! If things are taking too long, rerun with 'print_results_immediately = True'.")
-
         results.append((cycles.copy(), new_score))
-
         if print_results_immediately:
             print_single_result((cycles.copy(), new_score))
-
         return
 
+    #add new result if it's better than the worst result
     if new_score < results[-1][1]:
         results.pop()
         results.append((cycles.copy(), new_score))
-
         if print_results_immediately:
             print_single_result((cycles.copy(), new_score))
-
         results.sort(key=lambda r: r[1])
-        achievable_score = results[-1][1]
+        achievable_score = results[-1][1]#so achievable score is the worst score currently kept
         return
 
 
@@ -330,6 +325,7 @@ def combination_util(arr, data, start,
             i += 1
             continue
 
+        #skip tuples that force the score to be worse than the worst kept combination
         data[index] = arr[i]
         if get_score([x for x in data if x]) > achievable_score:
             i += 1
@@ -342,11 +338,74 @@ def combination_util(arr, data, start,
         #once recursive function returns, move on to next tuple
         i += 1
 
+def combination_util_partner(arr3, arr2, data, start,
+                     end, index, r):
+    global achievable_score
+    #check if enough matches have been made, print results if so
+    if index == r[0] + r[1]:
+        print_result(data)
+        return
+
+    #filter remaining tuples to remove any that contain players already matched.  Return if there are none
+    ppl_so_far = {item for sublist in data if sublist for item in sublist[0]}
+    remaining_triples = {tuple[0] for tuple in arr3[start:] if not set(tuple[0]) & ppl_so_far}
+    remaining_doubles = {tuple[0] for tuple in arr2[start:] if not set(tuple[0]) & ppl_so_far}
+    if not remaining_doubles or (index<r[0] and not remaining_triples):
+        return
+
+    #check if possible matches still exist for all remaining players, return if not (note: for pairing mode I'll need to change how remaining_people is checked, and possibly )
+    if data[0]:
+        remaining_people = 2*(r[0]+r[1]-index) + max(0,r[0]-index)
+        ppl_in_remaining_doubles = {j for sub in remaining_doubles for j in sub}#for every remaining triple, there are three remaining doubles, so this is enough
+        if remaining_people != len(ppl_in_remaining_doubles):
+            return
+
+
+    #need to separately check if there are enough triplets
+    elif index>r[0]:
+        arr=arr2
+        i=start
+        remaining_tuples=remaining_doubles
+    elif index==r[0]:
+        arr=arr2
+        i=1
+        end=len(arr2)-1
+        remaining_tuples=remaining_doubles        
+    else:
+        arr=arr3
+        i=start
+        remaining_tuples=remaining_triples
+
+
+    #if all previous checks pass, iterate over all remaining tuples
+
+    while i <= end and end - i + 1 >= r - index:#second condition triggers if not enough tuples are left for full game
+        if index == 0:
+            print(f"{i+1}/{worst_player_count}. Later iterations go faster.")
+
+        #skip tuples removed because players were already matched
+        if arr[i][0] not in remaining_tuples:
+            i += 1
+            continue
+
+        #skip tuples that force the score to be worse than the worst kept combination
+        data[index] = arr[i]
+        if get_score([x for x in data if x]) > achievable_score:
+            i += 1
+            continue
+        
+        #if tuple is good, temporarily commit to it and look for next one
+        combination_util(arr3, arr2, data.copy(), i + 1,
+                         end, index + 1, r)
+        
+        #once recursive function returns, move on to next tuple
+        i += 1
+
 def get_discouragement_factor(game, people):
     return discouraged_games[game] + sum(discouraged_combinations[(person.name, game)] for person in people)
 
 
-def generate_tuples(persons, games, problematic_players=frozenset()):
+def generate_tuples(persons, games, size, problematic_players=frozenset()):
     possible_tuples = []
 
     for game in games:
@@ -413,7 +472,7 @@ def generate_tuples(persons, games, problematic_players=frozenset()):
 def n_matching_experimental(persons, games):
     global worst_player_count
 
-    possible_tuples = generate_tuples(persons, games)
+    possible_tuples = generate_tuples(persons, games, teams)
 
     too_restrictive_players = set()
 
@@ -426,7 +485,7 @@ def n_matching_experimental(persons, games):
         print("As a result, no combinations were found.")
         print("Attempting to lower standard.")
 
-        possible_tuples = generate_tuples(persons, games, frozenset(too_restrictive_players), )
+        possible_tuples = generate_tuples(persons, games, teams, frozenset(too_restrictive_players), )
 
         #print("Make the restrictions looser, or play with less teams.")
 
@@ -570,14 +629,16 @@ if __name__ == '__main__':
             if optimaltriadcount==5 and playercount<15:
                 optimaltriadcount=1
             teams=3#probably better practice to make version of generate_tuples that takes teams as a value instead of changing global variables, but oh well
-            possible_triples=generate_tuples(persons,game_names.values())
-            #find results for the 3-team match, store in an array
-            result_3team=[]
-        teams=2
-        for result in result_3team:
-            optimal_2team_matching(remainingplayers)
-        teams=0
-        
+            possible_triples=generate_tuples(persons,game_names.values(),3)
+            possible_doubles=generate_tuples(persons,game_names.values(),2)
+
+        else:
+            print("Player count is divisible by 4, so running algorithm for teams=2 is sufficient for now.")
+            print("For team size 2, the regular algorithm might take very long to complete. But, 2-matching is actually a solvable (P) problem where it is easy to get the singular best answer. That answer is this:")
+            print("")
+            optimal_2team_matching(persons)
+            print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
+            n_matching_experimental(persons, game_names.values())
 
 
 #tend=time.time()
