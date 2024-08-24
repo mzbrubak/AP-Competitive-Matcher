@@ -40,7 +40,7 @@ only_use_best_match_for_player_combination = True
 
 # Set the amount of teams. 7 is probably the max for reasonable computation time.:
 
-teams = 2  # The max for this is probably 7.
+teams = 0  # The max for this is probably 7.
 
 # Determine how negative values are interpreted.
 # A negative value means "I don't want to play this game but I will if I have to".
@@ -99,9 +99,8 @@ achievable_score = math.inf
 worst_player_count = math.inf
 
 
-def get_cum_compatibility_score(scores):
-    return sum(get_compatibility_score(c[0], c[1]) for c in itertools.combinations(scores, 2)) / (binom(teams, 2))
-
+def get_cum_compatibility_score(scores,size):
+    return sum(get_compatibility_score(c[0], c[1]) for c in itertools.combinations(scores, 2)) / (binom(size, 2))
 
 class Person:
     name: str = ""
@@ -261,8 +260,8 @@ def print_single_result(result):
         print(", ".join([person.name for person in game[0]]) + " playing " + game[
             1] + ". Compatibility error: " + str(round(game[2])))
     print("Overall score: " + str(round(result[1])))
-
-    balance_teams(result)
+    if teams!=0:#balancing doesn't work if teams are different sizes
+        balance_teams(result)
 
     print("---")
 
@@ -362,24 +361,27 @@ def combination_util_partner(arr3, arr2, data, start,
 
 
     #need to separately check if there are enough triplets
-    elif index>r[0]:
+    if index>r[0]:
         arr=arr2
         i=start
         remaining_tuples=remaining_doubles
+        req=r[1]+r[0]
     elif index==r[0]:
         arr=arr2
         i=1
         end=len(arr2)-1
-        remaining_tuples=remaining_doubles        
+        remaining_tuples=remaining_doubles   
+        req=r[1]+r[0]     
     else:
         arr=arr3
         i=start
         remaining_tuples=remaining_triples
+        req=r[0]
 
 
     #if all previous checks pass, iterate over all remaining tuples
 
-    while i <= end and end - i + 1 >= r - index:#second condition triggers if not enough tuples are left for full game
+    while i <= end and end - i + 1 >= req - index:#second condition triggers if not enough tuples are left for full game
         if index == 0:
             print(f"{i+1}/{worst_player_count}. Later iterations go faster.")
 
@@ -395,7 +397,7 @@ def combination_util_partner(arr3, arr2, data, start,
             continue
         
         #if tuple is good, temporarily commit to it and look for next one
-        combination_util(arr3, arr2, data.copy(), i + 1,
+        combination_util_partner(arr3, arr2, data.copy(), i + 1,
                          end, index + 1, r)
         
         #once recursive function returns, move on to next tuple
@@ -411,8 +413,8 @@ def generate_tuples(persons, games, size, problematic_players=frozenset()):
     for game in games:
         associated_persons = [person for person in persons if game in person.games]
 
-        new_tuples = [(combination, game, get_cum_compatibility_score(person.games[game] for person in combination) + get_discouragement_factor(game, combination))
-                      for combination in itertools.combinations(associated_persons, teams)]
+        new_tuples = [(combination, game, get_cum_compatibility_score((person.games[game] for person in combination),size) + get_discouragement_factor(game, combination))
+                      for combination in itertools.combinations(associated_persons, size)]
 
         valid_tuples = []
 
@@ -521,6 +523,79 @@ def n_matching_experimental(persons, games):
     for result in results:
         print_single_result(result)
 
+def partner_matching_experimental(persons,games):
+    global worst_player_count
+    global teams
+    playercount=len(persons)
+    if playercount<3:
+        sys.exit("Not enough players.  If there's only two of you, you really don't need an algorithm to pick a game.  If there's only one of you, invite someone else to race you!")
+    playerremainder=playercount%4
+    if playerremainder:#if 0, just run teams=2 and split manually
+        optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
+        if playercount<optimaltriadcount*3:
+            print("For certain low playercounts (3,5,7, and 11) it is not possible to generate a set of games where everyone is playing a competitive (more than 1 team) multiworld (more than one slot per team).  Matching will proceed while generating some competitive single-world matches")
+            optimaltriadcount=1
+        pairplayercount=playercount-3*optimaltriadcount
+        possible_triples=generate_tuples(persons,game_names.values(),3)
+        possible_doubles=generate_tuples(persons,game_names.values(),2)
+        too_restrictive_players3=set()
+        too_restrictive_players2=set()
+        for player in persons:
+            if not any(player in double[0] for double in possible_doubles):
+                too_restrictive_players2.add(player)
+                print(f"With these settings, player {player.name} does not play any game that any other player plays.")
+            if not any(player in triple[0] for triple in possible_triples):
+                too_restrictive_players3.add(player)
+        if len(too_restrictive_players3)>pairplayercount:
+            print(f"There are ", len(too_restrictive_players3), " players that do not play any games that two other players play")
+        if (too_restrictive_players2 or (len(too_restrictive_players3)>pairplayercount)) and minimum_level!=lowered_minimum:
+            print("As a result, no combinations exist.  Attempting to lower standard")
+            possible_triples=generate_tuples(persons,game_names.values(),3,frozenset(too_restrictive_players2|too_restrictive_players3))
+            possible_doubles=generate_tuples(persons,game_names.values(),2,frozenset(too_restrictive_players2|too_restrictive_players3))
+            too_restrictive_players3=set()
+            too_restrictive_players2=set()
+            for player in persons:
+                if not any(player in double[0] for double in possible_doubles):
+                    too_restrictive_players2.add(player)
+                    print(f"Even with the lowered standard, player {player.name} does not play any game that any other player plays.")
+                if not any(player in triple[0] for triple in possible_triples):
+                    too_restrictive_players3.add(player)
+            if len(too_restrictive_players3)>pairplayercount:
+                print(f"Even with the lowered standard, there are ", len(too_restrictive_players3), " players that do not play any games that two other players play")
+#all_t and worst_player_count are just for logging progress I think, basing it on the outer loop should be fine?
+        all_t3=len(possible_triples)
+        all_t2=len(possible_doubles)
+        counts2=dict()
+        for tuple in possible_doubles:
+            for player in tuple[0]:
+                counts2.setdefault(player, 0)
+                counts2[player] += 1
+        counts3=dict()
+        for tuple in possible_triples:
+            for player in tuple[0]:
+                counts3.setdefault(player, 0)
+                counts3[player] += 1
+        worst_player_count=min(counts3.values())
+        possible_doubles.sort(key=lambda t: sum(counts2[p]*pow(all_t2, -ind) for ind, p in enumerate(sorted(t[0], key=lambda p: counts2[p]))))
+        possible_triples.sort(key=lambda t: sum(counts3[p]*pow(all_t3, -ind) for ind, p in enumerate(sorted(t[0], key=lambda p: counts3[p]))))
+        combination_util_partner(possible_triples,possible_doubles, [0]*int(optimaltriadcount+(pairplayercount/2)),0,len(possible_triples)-1,0,[optimaltriadcount,pairplayercount/2])
+        global results
+        results.sort(key=lambda x: x[1])
+
+        if not results:
+            print("No combinations were found. Find more people or loosen the restrictions.")
+
+        for result in results:
+            print_single_result(result)
+    else:
+        print("Player count is divisible by 4, so running algorithm for teams=2 is sufficient for now.")
+        teams=2
+        print("For team size 2, the regular algorithm might take very long to complete. But, 2-matching is actually a solvable (P) problem where it is easy to get the singular best answer. That answer is this:")
+        print("")
+        optimal_2team_matching(persons)
+        print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
+        n_matching_experimental(persons, game_names.values())
+
 def optimal_2team_matching(persons):
     G = networkx.Graph()
     G.add_nodes_from([person for person in persons])
@@ -616,29 +691,10 @@ if __name__ == '__main__':
         print("Please be aware that this problem is NP-complete. This means that its execution time grows exponentially. With over 20 players, you might have over a minute, if not several.")
         n_matching_experimental(persons, game_names.values())
 
-    print("You can always try setting the values for minimum skill and maximum skill difference to be more restrictive.\nIf that doesn't work, you could try pre-setting some match-ups and removing those players from values.txt to compute a solution for the rest of the players, then combining your pre-set matchup with those results.")
-    print("---")
+    if teams == 0: #small games/partner mode: decompose group automatically into 2v2 matches, with an additional 3-team match with up to 5 players per team as required to allow all players to join regardless of number
+        print("Please note that this is an experimental matching mode.")
+        partner_matching_experimental(persons,game_names.values())
 
-    if teams == 0: #small games mode: decompose group automatically into 2v2 matches, with an additional 3-team match with up to 5 players per team as required to allow all players to join regardless of number
-        playercount=len(persons)
-        if playercount<2:
-            sys.exit("Not enough players")
-        playerremainder=playercount%4
-        if playerremainder:#if 0, just run teams=2 and split manually
-            optimaltriadcount=(2-playerremainder)%4+2 #maps 1 to 3, 2 to 2, and 3 to 5
-            if optimaltriadcount==5 and playercount<15:
-                optimaltriadcount=1
-            teams=3#probably better practice to make version of generate_tuples that takes teams as a value instead of changing global variables, but oh well
-            possible_triples=generate_tuples(persons,game_names.values(),3)
-            possible_doubles=generate_tuples(persons,game_names.values(),2)
-
-        else:
-            print("Player count is divisible by 4, so running algorithm for teams=2 is sufficient for now.")
-            print("For team size 2, the regular algorithm might take very long to complete. But, 2-matching is actually a solvable (P) problem where it is easy to get the singular best answer. That answer is this:")
-            print("")
-            optimal_2team_matching(persons)
-            print("\nThe regular algorithm will now also be performed. Be aware this might take minutes, if not hours, with a player count of 18 or higher.")
-            n_matching_experimental(persons, game_names.values())
 
 
 #tend=time.time()
