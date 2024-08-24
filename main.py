@@ -662,10 +662,10 @@ if __name__ == '__main__':
             for i, value in enumerate(line_split):
                 if i == 0:
                     continue
-                if value == "":
+                if value.strip() == "":
                     continue
 
-                value = int(value)
+                value = int(value.strip())
 
                 if value < 0:
                     value = abs(value)
